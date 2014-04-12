@@ -1,5 +1,16 @@
 '''Long-lived configuration values.
 
+******************************************
+*************** WARNING ******************
+******************************************
+We need to ensure this information is 
+always current and exactly matches the
+hardcoded info in tor/src/or/config.c in
+the actual tor source code.
+******************************************
+******************************************
+******************************************
+
 We use this information to bootstrap ourselves in the tor network
 and get initial network status documents.  After getting our first
 consensus, we can use directory caches in the future.
