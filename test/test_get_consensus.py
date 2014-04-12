@@ -50,5 +50,6 @@ if __name__ == '__main__':
     directory_auth = '194.109.206.212'
     doc = '/tor/status-vote/current/consensus.z'
 
-    print(doc_from_file(fname))
+    #print(doc_from_file(fname))
     #print(doc_from_web(directory_auth, doc))
+    print(doc_from_file('files/ex_rd.z'))
