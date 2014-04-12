@@ -1,0 +1,7 @@
+- specify in the wiki (human-readable form from dir-spec) exactly
+  what keywords we're looking for, error conditions, etc. so we
+  have clear specifications for writing tests
+
+- think about what types of data structures we're going to use to
+  store persistent information (e.g., should we split up routers 
+  into different groups: exits, relays, and guards?)
