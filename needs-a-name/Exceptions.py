@@ -1,0 +1,3 @@
+
+class BadConsensusDoc(Exception):
+    pass
