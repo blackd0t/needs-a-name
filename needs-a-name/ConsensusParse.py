@@ -191,26 +191,6 @@ class ConsensusParser:
                 
             l = self.data.readline()
 
-        # get 's' line
-        #line = self.data.readline().split()
-        #if len(line) != 4:
-        #    raise BadConsensusDoc('Invalid arguments to \'s\' line '
-        #                          'in consensus doc.')
-        #if line[0] != 's':
-        #    raise BadConsensusDoc('Missing \'s\' keyword in router status.')
-        #
-        #self.router_status[key]['flags'] = line[1:]
-        #
-        # get 'v' line
-        #line = self.data.readline().split()
-        #if len(line) != 3:
-        #    raise BadConsensusDoc('Invalid arguments to \'v\' line '
-        #                          'in consensus doc.')
-        #if line[0] != 'v':
-        #    raise BadConsensusDoc('Missing \'v\' keyword in router status.')
-        #
-        #self.router_status[key]['flags'] = line[1:]
-
     def parse_dir_source(self, line):
         '''Parse dir-source keyword line, contact line, and vote-digest line.
         '''
