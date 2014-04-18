@@ -70,8 +70,6 @@ class ConsensusParser:
 
         self.check_consensus_start()
 
-        # stop when we hit 'r' and put line back in stream --
-        # this means we've hit router status entries
         for line in self.data:
             line = line.strip().split()
             if len(line) == 0:
