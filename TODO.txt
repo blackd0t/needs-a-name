@@ -1,7 +1,7 @@
-- specify in the wiki (human-readable form from dir-spec) exactly
-  what keywords we're looking for, error conditions, etc. so we
-  have clear specifications for writing tests
+- check that we get all required arguments out of documents
 
-- think about what types of data structures we're going to use to
-  store persistent information (e.g., should we split up routers 
-  into different groups: exits, relays, and guards?)
+- check that our values are reasonable and correct (i.e. IP address is valid)
+
+- make sure we're following the spec 100% correctly
+
+- write some unit tests
