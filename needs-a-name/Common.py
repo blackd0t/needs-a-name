@@ -41,3 +41,21 @@ def get_signature(data):
         line = data.readline().strip()
     return sig
 
+def get_id_signature(data):
+    '''Return id signature
+
+    data should be a StringIO or File object at the line beginning with
+    '-----BEGIN ID-----'. returns the signature with newlines
+    stripped out.
+    '''
+    line = data.readline().strip()
+    if line != '-----BEGIN ID SIGNATURE-----':
+        raise BadFormatRSAKey("Missing '-----BEGIN ID SIGNATURE-----' "
+                              "line in key.")
+
+    line = data.readline().strip()
+    _id = ''
+    while line !=  '-----END ID SIGNATURE-----':
+        _id += line
+        line = data.readline().strip()
+    return _id
