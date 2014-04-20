@@ -1,6 +1,14 @@
+# XXX: Notes
+#   - what format are keys in, and do we have to do anything with them?
+#       - apparently, onion-key is PEM and ntor is base-64-encoded
+#           - do we need to do any additional conversions of these?
+#   - need a 'cleanup' function to check that all required values are
+#     present and to set shit like 'caches-extra-info' to the default if
+#     the option is not present (in the case of caches-extra-info, False)
+
+
 #TODO:
-#   1.  Finish implementing keyword parsing functions
-#   2.  Check parsed data for errors - consider implementing separate 
+#   -  Check parsed data for errors - consider implementing separate 
 #       validation functions for each keyword rather than doing the 
 #       validation inside the parsing function itself
 #
@@ -15,35 +23,25 @@
 #               allowed to
 #           d.  Make sure the parameters to keywords are in the correct 
 #               format and are valid
-#   3.  Test code
+#   -  Test code
 #           a. Against valid files
 #           b. Against invalid files
 #           c. Create Unit Tests???
-#   4.  Write module level docstring (see PEP 257 for details)
-#   5.  Write custom exceptions
 
 from io import StringIO
+
+from Common import get_rsa_pub_key, get_signature
+from Exceptions import BadRouterDoc
 
 class RDParser:
     '''Parse a router descriptor.
 
     Attributes:
-        values (dict): dictionary of values from router descriptor       
+        values (dict): values from router descriptor       
     '''
     
-    # XXX:  will anything be inheriting from RDParser?
-    #       if not (or even if so but there's little danger
-    #       of name collision), we should remove '__' prefixes from stuff
-    #       for readability
-    def __init__(self, data=""):
-        '''Initialize data and function mapping dict.
-
-        Args:
-            data (str): data is the raw string of router descriptor info
-                        data MUST be decompressed, decoded, and its signature
-                        verified before being passed in
-        '''
-        self.__data = StringIO(data)
+    def __init__(self, data):
+        self.data = StringIO(data)
         
         # keywords in values dict are keywords in router descriptor file
         self.values = {
@@ -57,8 +55,7 @@ class RDParser:
             'onion-key' : None,
             'ntor-onion-key' : None,
             'signing-key' : None,
-            'accept' : None,
-            'reject' : None,
+            'exit-policy': None,
             'ipv6-policy' : None,
             'router-signature' : None,
             'contact' : None,
@@ -75,57 +72,63 @@ class RDParser:
         }
         # mapping of keywords to processing functions
         # avoid enormous if-statement
-        self.__functions = {
-            'router' : self.__parse_router,
-			'bandwidth' : self.__parse_bandwidth,
-			'platform' : self.__parse_platform,
-			'published' : self.__parse_published,
-			'fingerprint' : self.__parse_fingerprint,
-			'hibernating' : self.__parse_hibernating,
-			'uptime' : self.__parse_uptime,
-			'onion-key' : self.__parse_onion_key,
-			'ntor-onion-key' : self.__parse_ntor_onion_key,
-			'signing-key' : self.__parse_signing_key,
-			'accept' : self.__parse_accept,
-			'reject' : self.__parse_reject,
-			'ipv6-policy' : self.__parse_ipv6_policy,
-			'router-signature' : self.__parse_router_signature,
-			'contact' : self.__parse_contact,
-			'family' : self.__parse_family,
-			'read-history' : self.__parse_read_history,
-			'write-history' : self.__parse_write_history,
-			'eventdns' : self.__parse_eventdns,
-			'caches-extra-info' : self.__parse_caches_extra_info,
-			'extra-info-digest' : self.__parse_extra_info_digest,
-			'hidden-service-dir' : self.__parse_hidden_service_dir,
-			'protocols' : self.__parse_protocols,
-			'allows-single-hop-exits' : self.__parse_allows_single_hop_exits,
-			'or-address' : self.__parse_or_address,
+        self.functions = {
+            'router' : self.parse_router,
+			'bandwidth' : self.parse_bandwidth,
+			'platform' : self.parse_platform,
+			'published' : self.parse_published,
+			'fingerprint' : self.parse_fingerprint,
+			'hibernating' : self.parse_hibernating,
+			'uptime' : self.parse_uptime,
+			'onion-key' : self.parse_onion_key,
+			'ntor-onion-key' : self.parse_ntor_onion_key,
+			'signing-key' : self.parse_signing_key,
+			'accept' : self.parse_accept,
+			'reject' : self.parse_reject,
+			'ipv6-policy' : self.parse_ipv6_policy,
+			'router-signature' : self.parse_router_signature,
+			'contact' : self.parse_contact,
+			'family' : self.parse_family,
+			'read-history' : self.parse_read_history,
+			'write-history' : self.parse_write_history,
+			'eventdns' : self.parse_eventdns,
+			'caches-extra-info' : self.parse_caches_extra_info,
+			'extra-info-digest' : self.parse_extra_info_digest,
+			'hidden-service-dir' : self.parse_hidden_service_dir,
+			'protocols' : self.parse_protocols,
+			'allows-single-hop-exits' : self.parse_allows_single_hop_exits,
+			'or-address' : self.parse_or_address,
         }
+
+    def check_router_start(self):
+        '''Check the beginning of a router descriptor file.
+        '''
+        self.parse_router(self.data.readline().split())
 
     def parse(self):
         '''Parse router descriptor and save keyword values in values dict.
         '''
+        
+        self.check_router_start()
+
+
         # for each line, grab its keyword and parse the rest of 
         # the line if the keyword is recognized
-        for line in self.__data:
-            line = line.strip()
-            if line.split()[0] in self.__functions:
-                self.__functions[line.split()[0]](line)
+        for line in self.data:
+            line = line.strip().split()
+            if line[0] in self.functions:
+                self.functions[line[0]](line)
   
-    # TODO  - add some error/sanity checking for all this stuff
-    #       - should raise custom exceptions here
-    def __parse_router(self, line):
+    def parse_router(self, line):
         '''Parse router keyword line.
-
-        Args:
-            line (str): line to parse
         '''
-        line = line.split()
 
         if len(line) < 6:
-            raise Exception("The keyword 'router' \
-                            requires at least 5 parameters")
+            raise BadRouterDoc("The keyword 'router' "
+                               "requires at least 5 parameters")
+
+        if self.values['router'] is not None:
+            self.multi_word_exc('router')
 
         self.values['router'] = {}
         self.values['router']['nickname'] = line[1]
@@ -134,228 +137,201 @@ class RDParser:
         self.values['router']['SOCKSPort'] = line[4]
         self.values['router']['DirPort'] = line[5]
         
-    def __parse_bandwidth(self, line):
-        '''Parse bandwidth line.
-
-        Args:
-            line (str): line to parse
+    def parse_bandwidth(self, line):
+        '''Parse bandwidth line of router descriptor.
         '''
-        line = line.split()
 
         if len(line) < 4:
-            raise Exception("The keyword 'bandwidth'\
-                            requires at least 5 parameters")
+            raise BadRouterDoc("The keyword 'bandwidth' "
+                               "requires at least 5 parameters.")
+
+        if self.values['bandwidth'] is not None:
+            self.multi_word_exc('bandwidth')
 
         self.values['bandwidth'] = {}
-        self.values['bandwidth']['bandwidth-avg'] = line[1]
-        self.values['bandwidth']['bandwidth-burst'] = line[2]
-        self.values['bandwidth']['bandwidth-observed'] = line[3]
+        self.values['bandwidth']['avg'] = line[1]
+        self.values['bandwidth']['burst'] = line[2]
+        self.values['bandwidth']['observed'] = line[3]
         
-    def __parse_platform(self, line):
+    def parse_platform(self, line):
         '''Parse platform line.
-
-        Args:
-            line (str): line to parse
         '''
-        self.values['platform'] = line[8:].strip()
+
+        if self.values['platform'] is not None:
+            self.multi_word_exc('platform')
+
+        self.values['platform'] = line[1:]
         
-    def __parse_published(self, line):
+    def parse_published(self, line):
         '''Parse published line.
-
-        Args:
-            line (str): line to parse
         '''
-        line = line.split()
 
         if len(line) < 3:
-            raise Exception("The keyword 'published' \
-                            requires at least 2 parameters")
+            raise BadRouterDoc("The keyword 'published' "
+                               "requires at least 2 parameters")
 
-        self.values['published'] = {}
-        self.values['published']['YYYY-MM-DD'] = line[1]
-        self.values['published']['HH:MM:SS'] = line[2]
+        if self.values['published'] is not None:
+            self.multi_word_exc('published')
+
+        self.values['published'] = line[1:]
         
-    def __parse_fingerprint(self, line):
+    def parse_fingerprint(self, line):
         '''Parse fingerprint line.
-
-        Args:
-            line (str): line to parse
         '''
-        self.values['fingerprint'] = line[11:].strip()
+        if self.values['fingerprint'] is not None:
+            self.multi_word_exc('fingerprint')
+            
+        self.values['fingerprint'] = ''.join(line[1:])
         
-    def __parse_hibernating(self, line):
+    def parse_hibernating(self, line):
         '''Parse hibernating line.
-
-        Args:
-            line (str): line to parse
         '''
-        self.values['hibernating'] = line[11:].strip()
+        if self.values['hibernating'] is not None:
+            self.multi_word_exc('hibernating')
+        self.values['hibernating'] = line[1]
         
-    def __parse_uptime(self, line):
+    def parse_uptime(self, line):
         '''Parse uptime line.
-
-        Args:
-            line (str): line to parse
         '''
-        self.values['uptime'] = line[6:].strip()
-        
-    def __parse_onion_key(self, line):
+        if self.values['uptime'] is not None:
+            self.multi_word_exc('uptime')
+        self.values['uptime'] = line[1]
+
+    def parse_onion_key(self, line):
         '''Parse onion key line
-
-        Args:
-            line (str): line to parse
         '''
-        print("Function: '__parse_onion_key()' not yet implemented.")
-        #TODO: Implement Function
+        if self.values['onion-key'] is not None:
+            self.multi_line_exc('onion-key')
+        self.values['onion-key'] = get_rsa_pub_key(self.data)
         
-    def __parse_ntor_onion_key(self, line):
+    def parse_ntor_onion_key(self, line):
         '''Parse ntor onion key line.
-
-        Args:
-            line (str): line to parse
         '''
-        print("Function: '__parse_ntor_onion_key()' not yet implemented.")
-        #TODO: Implement Function
+        if self.values['ntor-onion-key'] is not None:
+            self.multi_line_exc('ntor-onion-key')
+        self.values['ntor-onion-key'] = line[1]
         
-    def __parse_signing_key(self, line):
+    def parse_signing_key(self, line):
         '''Parse signing key line.
-
-        Args:
-            line (str): line to parse
         '''
-        print("Function: '__parse_signing_key()' not yet implemented.")
-        #TODO: Implement Function
+        if self.values['signing-key'] is not None:
+            self.multi_line_exc('signing-key')
+        self.values['signing-key'] = get_rsa_pub_key(self.data)
         
-    def __parse_accept(self, line):
+    def parse_accept(self, line):
         '''Parse accept line.
-
-        Args:
-            line (str): line to parse
         '''
-        if self.values['accept'] == None:
-            self.values['accept'] = []
-        self.values['accept'].append(line[6:].strip())
+        if self.values['exit-policy'] == None:
+            self.values['exit-policy'] = []
+        self.values['exit-policy'].append(line[1:])
         
-    def __parse_reject(self, line):
+    def parse_reject(self, line):
         '''Parse reject line.
-
-        Args:
-            line (str): line to parse
         '''
-        if self.values['reject'] == None:
-            self.values['reject'] = []
-        self.values['reject'].append(line[6:].strip())
+        if self.values['exit-policy'] == None:
+            self.values['exit-policy'] = []
+        self.values['exit-policy'].append(line[1:])
         
-    def __parse_ipv6_policy(self, line):
+    def parse_ipv6_policy(self, line):
         '''Parse ipv6 line.
-
-        Args:
-            line (str): line to parse
         '''
-        print("Function: '__parse_ipv6_policy()' not yet implemented.")
-        #TODO: Implement Function
+        print("Function: 'parse_ipv6_policy()' not yet implemented.")
         
-    def __parse_router_signature(self, line):
+    def parse_router_signature(self, line):
         '''Parse router signature line.
-
-        Args:
-            line (str): line to parse
         '''
-        print("Function: '__parse_router_signature()' not yet implemented.")
-        #TODO: Implement Function
+        if self.values['router-signature'] is not None:
+            self.multi_line_exc('router-signature')
+        self.values['router-signature'] = get_signature(self.data)
         
-    def __parse_contact(self, line):
+    def parse_contact(self, line):
         '''Parse contact line.
-
-        Args:
-            line (str): line to parse
         '''
-        self.values['contact'] = line[7:].strip()
+        if self.values['contact'] is not None:
+            self.multi_line_exc('contact')
+        self.values['contact'] = line[1:]
         
-    def __parse_family(self, line):
+    def parse_family(self, line):
         '''Parse family line.
-
-        Args:
-            line (str): line to parse
         '''
-        print("Function: '__parse_family()' not yet implemented.")
-        #TODO: Implement Function
+        if self.values['family'] is not None:
+            self.multi_line_exc('family')
+        self.values['family'] = line[1:]
         
-    def __parse_read_history(self, line):
+    def parse_read_history(self, line):
         '''Parse read history line.
-
-        Args:
-            line (str): line to parse
         '''
-        print("Function: '__parse_read_history()' not yet implemented.")
-        #TODO: Implement Function
+        if self.values['read-history'] is not None:
+            self.multi_line_exc('read-history')
+        # we're not using this
+        pass
         
-    def __parse_write_history(self, line):
+    def parse_write_history(self, line):
         '''Parse write history.
-
-        Args:
-            line (str): line to parse
         '''
-        print("Function: '__parse_write_history()' not yet implemented.")
-        #TODO: Implement Function
+        if self.values['write-history'] is not None:
+            self.multi_line_exc('write-history')
+        # not using this
+        pass
         
-    def __parse_eventdns(self, line):
+    def parse_eventdns(self, line):
         '''Parse event dns line.
-
-        Args:
-            line (str): line to parse
         '''
-        self.values['event-dns'] = line[9:].strip()
+        if self.values['eventdns'] is not None:
+            self.multi_line_exc('eventdns')
+        # obsolete
+        pass
         
-    def __parse_caches_extra_info(self, line):
+    def parse_caches_extra_info(self, line):
         '''Parse caches extra info
-
-        Args:
-            line (str): line to parse
         '''
+        if self.values['caches-extra-info'] is not None:
+            self.multi_line_exc('caches-extra-info')
         self.values['caches-extra-info'] = True
         
-    def __parse_extra_info_digest(self, line):
+    def parse_extra_info_digest(self, line):
         '''Parse extra info digest
-
-        Args:
-            line (str): line to parse
         '''
-        self.values['extra-info-digest'] = line[17:].strip()
+        if self.values['extra-info-digest'] is not None:
+            self.multi_line_exc('extra-info-digest')
+        self.values['extra-info-digest'] = line[1:]
         
-    def __parse_hidden_service_dir(self, line):
+    def parse_hidden_service_dir(self, line):
         '''Parse hidden service dir line.
-
-        Args:
-            line (str): line to parse
         '''
-        print("Function: '__parse_hidden_service_dir()' not yet implemented.")
-        #TODO: Implement Function
+        if self.values['hidden-service-dir'] is not None:
+            self.multi_line_exc('hidden-service-dir')
+        self.values['hidden-service-dir'] = line[1:]
         
-    def __parse_protocols(self, line):
+    def parse_protocols(self, line):
         '''Parse protocols line.
-
-        Args:
-            line (str): line to parse
         '''
-        print("Function: '__parse_protocols()' not yet implemented.")
-        #TODO: Implement Function
+        if self.values['protocols'] is not None:
+            self.multi_line_exc('protocols')
+        self.values['protocols'] = line[1:]
         
-    def __parse_allows_single_hop_exits(self, line):
+    def parse_allows_single_hop_exits(self, line):
         '''Parse allows single hop exists line.
-
-        Args:
-            line (str): line to parse
         '''
-        print("Function: '__parse_allows_single_hop_exits()' \
-              not yet implemented.")
-        #TODO: Implement Function
+        if self.values['allow-single-hop-exits'] is not None:
+            self.multi_line_exc('allow-single-hop-exits')
+        self.values['allow-single-hop-exits'] = True
         
-    def __parse_or_address(self, line):
+    def parse_or_address(self, line):
         '''Parse or address line.
-
-        Args:
-            line (str): line to parse
         '''
-        print("Function: '__parse_or_address()' not yet implemented.")
-        #TODO: Implement Function
+        if self.values['or-address'] is None:
+            self.values['or-address'] = []
+        self.values['or-address'].append(line[1:])
+
+    def multi_word_exc(self, keyword):
+        raise BadRouterDoc("Only one '{0}' line allowed per "
+                           "router descriptor.".format(keyword))
+
+if __name__ == '__main__':
+    with open('data/rd.txt', 'r') as f:
+        d = f.read()
+    r = RDParser(d)
+    r.parse()
+    for i in r.values:
+        print(i, r.values[i])

@@ -1,11 +1,9 @@
 # TODO:
+#       - consider converting dates/times into timestamps
 #       - make sure values are reasonable (i.e. date/times are correct, etc.)
-#       - make sure *REQUIRED* keywords are present (maybe at end of 
-#                                                    parse_preamble)
+#       - make sure *REQUIRED* keywords are present
 #       - refactor some stuff to be simpler
 #       - check that we actually have all required stuff
-#       - remove preamble_values and instead use one dict for everything,
-#         with nested dicts if needed for other stuff
 
 from io import StringIO
 
@@ -20,27 +18,26 @@ class ConsensusParser:
         '''
         self.data = StringIO(data)
 
-        self.preamble_values = {
-            'network-status-version': None,
-            'vote-status': None,
-            'consensus-method': None,
-            'valid-after': None,
-            'fresh-until': None,
-            'valid-until': None,
-            'voting-delay': None,
-            'client-versions': None,
-            'server-versions': None,
-            'known-flags': None,
-            'params': None,
+        self.values = {
+            'preamble_values': {
+                'network-status-version': None,
+                'vote-status': None,
+                'consensus-method': None,
+                'valid-after': None,
+                'fresh-until': None,
+                'valid-until': None,
+                'voting-delay': None,
+                'client-versions': None,
+                'server-versions': None,
+                'known-flags': None,
+                'params': None,
+            },
+            'authority_values': {},
+            'router_status': {},
+            'bandwidth_weights': None,
+            'directory_signatures': {},
         }
 
-        self.authority_values = {}
-
-        self.router_status = {}
-
-        self.bandwidth_weights = None
-
-        self.directory_signatures = {}
 
         # parsing functions
         self.parsers = {
@@ -85,20 +82,20 @@ class ConsensusParser:
         '''
         # we have an algorithm specified
         if len(line) == 4:
-            self.directory_signatures[line[2]] = {}
-            self.directory_signatures[line[2]]['algorithm'] = line[1]
-            self.directory_signatures[line[2]]['signing-key-digest'] = line[3]
+            self.values['directory_signatures'][line[2]] = {}
+            self.values['directory_signatures'][line[2]]['algorithm'] = line[1]
+            self.values['directory_signatures'][line[2]]['signing-key-digest'] = line[3]
         # no algorithm specified; use sha1
         elif len(line) == 3:
-            self.directory_signatures[line[1]] = {}
-            self.directory_signatures[line[1]]['algorithm'] = 'sha1'
-            self.directory_signatures[line[1]]['signing-key-digest'] = line[2]
+            self.values['directory_signatures'][line[1]] = {}
+            self.values['directory_signatures'][line[1]]['algorithm'] = 'sha1'
+            self.values['directory_signatures'][line[1]]['signing-key-digest'] = line[2]
         else:
             raise BadConsensusDoc('Invalid arguments to '
                                   'directory-signature line.')
 
         sig = self.get_signature(self.data.readline())
-        self.directory_signatures[line[1]]['signature'] = sig
+        self.values['directory_signatures'][line[1]]['signature'] = sig
 
     def get_signature(self, line):
         '''Get a signature from consensus doc.
@@ -113,14 +110,29 @@ class ConsensusParser:
     def parse_bandwidth_weights(self, line):
         '''Parse bandwidth weights line.
         '''
-        if self.bandwidth_weights is not None:
+        if self.values['bandwidth_weights'] is not None:
             raise BadConsensusDoc('Only one bandwidth-weights '
                                   'section allowed in consensus.')
 
-        self.bandwidth_weights = {}
+        self.values['bandwidth_weights'] = {}
         keys = [i.split('=') for i in line[1:]]
         for i in keys:
-            self.bandwidth_weights[i[0]] = i[1]
+            self.values['bandwidth_weights'][i[0]] = i[1]
+
+    def add_new_router(self, line):
+        '''Helper for router_parser: add a new entry to router_status and
+        return key to use as reference.
+        '''
+        key = line[2]
+        self.values['router_status'][key] = {}
+        self.values['router_status'][key]['nickname'] = line[1]
+        self.values['router_status'][key]['digest'] = line[3]
+        self.values['router_status'][key]['publication'] = line[4] + ' ' + line[5]
+        self.values['router_status'][key]['ip'] = line[6]
+        self.values['router_status'][key]['orport'] = line[7]
+        self.values['router_status'][key]['dirport'] = line[8]
+
+        return key
 
     def router_parser(self, line):
         '''Parse a router status entry in consensus doc.
@@ -130,44 +142,37 @@ class ConsensusParser:
             raise BadConsensusDoc('Invalid arguments to \'r\' line '
                                   'in consensus doc.')
         
-        key = line[2]
-        self.router_status[key] = {}
-        self.router_status[key]['nickname'] = line[1]
-        self.router_status[key]['digest'] = line[3]
-        self.router_status[key]['publication'] = line[4] + ' ' + line[5]
-        self.router_status[key]['ip'] = line[6]
-        self.router_status[key]['orport'] = line[7]
-        self.router_status[key]['dirport'] = line[8]
+        key = self.add_new_router(line)
 
         # go until we hit 'directory-footer'
         l = self.data.readline()
         while not l.startswith('directory-footer'):
             if l.startswith('a'):
-                if 'ipv6' not in self.router_status[key]:
-                    self.router_status[key]['ipv6'] = []
+                if 'ipv6' not in self.values['router_status'][key]:
+                    self.values['router_status'][key]['ipv6'] = []
                 l = l.split()
                 l = [i.strip() for i in l]
-                self.router_status[key]['ipv6'].append(l[1:])
+                self.values['router_status'][key]['ipv6'].append(l[1:])
             elif l.startswith('s'):
-                if 'flags' in self.router_status[key]:
+                if 'flags' in self.values['router_status'][key]:
                     raise BadConsensusDoc('Only one flags argument per '
                                           'router allowed in consensus.')
                 l = l.split()
                 l = [i.strip() for i in l]
-                self.router_status[key]['flags'] = l[1:]
+                self.values['router_status'][key]['flags'] = l[1:]
             elif l.startswith('v'):
-                if 'version' in self.router_status[key]:
+                if 'version' in self.values['router_status'][key]:
                     raise BadConsensusDoc('Only one version argument per '
                                           'router allowed in consensus.')
                 l = l.split()
                 l = [i.strip() for i in l]
-                self.router_status[key]['version'] = l[1:]
+                self.values['router_status'][key]['version'] = l[1:]
             elif l.startswith('w'):
-                if 'bandwidth' in self.router_status[key]:
+                if 'bandwidth' in self.values['router_status'][key]:
                     raise BadConsensusDoc('Only one bandwidth argument per '
                                           'router allowed in consensus.')
             elif l.startswith('p'):
-                if 'ports' in self.router_status[key]:
+                if 'ports' in self.values['router_status'][key]:
                     raise BadConsensusDoc('Only one ports argument per '
                                           'router allowed in consensus.')
                 # ignore this; we'll use info from descriptors
@@ -177,14 +182,7 @@ class ConsensusParser:
                 pass
             elif l.startswith('r'):
                 l = l.split()
-                key = l[2]
-                self.router_status[key] = {}
-                self.router_status[key]['nickname'] = l[1]
-                self.router_status[key]['digest'] = l[3]
-                self.router_status[key]['publication'] = l[4] + ' ' + l[5]
-                self.router_status[key]['ip'] = l[6]
-                self.router_status[key]['orport'] = l[7]
-                self.router_status[key]['dirport'] = l[8]
+                key = self.add_new_router(l)
             else:
                 raise BadConsensusDoc('Unrecognized consensus keyword {0}'
                                       .format(l.split()[0]))
@@ -199,12 +197,12 @@ class ConsensusParser:
 
         # indexed by authority identity key
         key = line[2]
-        self.authority_values[key] = {}
-        self.authority_values[key]['nickname'] = line[1]
-        self.authority_values[key]['address'] = line[3]
-        self.authority_values[key]['ip'] = line[4]
-        self.authority_values[key]['dirport'] = line[5]
-        self.authority_values[key]['orport'] = line[6]
+        self.values['authority_values'][key] = {}
+        self.values['authority_values'][key]['nickname'] = line[1]
+        self.values['authority_values'][key]['address'] = line[3]
+        self.values['authority_values'][key]['ip'] = line[4]
+        self.values['authority_values'][key]['dirport'] = line[5]
+        self.values['authority_values'][key]['orport'] = line[6]
 
         # get contact info
         line = self.data.readline().split()
@@ -212,7 +210,7 @@ class ConsensusParser:
             raise BadConsensusDoc('Bad keyword {0} in consensus doc - '
                                   'expected \'contact\'.'.format(line[0]))
 
-        self.authority_values[key]['contact'] = line[1:]
+        self.values['authority_values'][key]['contact'] = line[1:]
 
         # get vote digest
         line = self.data.readline().split()
@@ -223,7 +221,7 @@ class ConsensusParser:
             raise BadConsensusDoc('Bad keyword {0} in consensus doc - '
                                   'expected \'vote-digest\'.'.format(line[0]))
 
-        self.authority_values[key]['vote-digest'] = line[1]
+        self.values['authority_values'][key]['vote-digest'] = line[1]
 
     def verify_line(self, line, keyword, length, single=True):
         '''Helper to parse consensus.
@@ -231,7 +229,7 @@ class ConsensusParser:
         Verify keyword is first item in line, length is len(line, and,
         if single is True, that this is the first occurence of keyword.
         '''
-        if self.preamble_values[keyword] and single:
+        if self.values['preamble_values'][keyword] and single:
             raise BadConsensusDoc("Too many {0} keywords - expected "
                                   "EXACTLY one.".format(keyword))
         if len(line) != length:
@@ -248,9 +246,7 @@ class ConsensusParser:
         line = self.data.readline().strip().split()
         self.verify_line(line, 'network-status-version', 2)
 
-        self.preamble_values[line[0]] = line[1]
-
-
+        self.values['preamble_values'][line[0]] = line[1]
 
     def parse_vote_status(self, line):
         '''Verify vote-status is consensus.
@@ -262,7 +258,7 @@ class ConsensusParser:
             raise BadConsensusDoc("Expected type 'consensus' "
                                   " - got {0}".format(line[1]))
 
-        self.preamble_values[line[0]] = line[1]
+        self.values['preamble_values'][line[0]] = line[1]
 
     def parse_consensus_method(self, line):  
         '''Parse consensus method.
@@ -271,7 +267,7 @@ class ConsensusParser:
         '''
         self.verify_line(line, 'consensus-method', 2)
         # don't care about the values so just ignore
-        self.preamble_values[line[0]] = line[1]
+        self.values['preamble_values'][line[0]] = line[1]
 
     def parse_valid_after(self, line):
         '''Parse valid-after keyword line.
@@ -280,7 +276,7 @@ class ConsensusParser:
         '''
         self.verify_line(line, 'valid-after', 3)
 
-        self.preamble_values[line[0]] = line[1:]
+        self.values['preamble_values'][line[0]] = line[1:]
 
     def parse_fresh_until(self, line):
         '''Parse fresh-until keyword line.
@@ -289,7 +285,7 @@ class ConsensusParser:
         '''
         self.verify_line(line, 'fresh-until', 3)
 
-        self.preamble_values[line[0]] = line[1:]
+        self.values['preamble_values'][line[0]] = line[1:]
 
     def parse_valid_until(self, line):
         '''Parse valid-until keyword line.
@@ -298,7 +294,7 @@ class ConsensusParser:
         '''
         self.verify_line(line, 'valid-until', 3)
 
-        self.preamble_values[line[0]] = line[1:]
+        self.values['preamble_values'][line[0]] = line[1:]
 
     def parse_voting_delay(self, line):
         '''Parse voting-delay keyword.
@@ -307,7 +303,7 @@ class ConsensusParser:
         '''
         self.verify_line(line, 'voting-delay', 3)
 
-        self.preamble_values[line[0]] = line[1:]
+        self.values['preamble_values'][line[0]] = line[1:]
 
     def parse_client_versions(self, line):
         '''Parse client-versions keyword.
@@ -316,10 +312,10 @@ class ConsensusParser:
         Should match version-spec.txt from tor specification docs.
         '''
 
-        if self.preamble_values[line[0]] is not None:
+        if self.values['preamble_values'][line[0]] is not None:
             raise BadConsensusDoc('Keyword {0} must occur at most once '
                                   'in consensus doc.'.format(line[0]))
-        self.preamble_values[line[0]] = line[1:]
+        self.values['preamble_values'][line[0]] = line[1:]
 
     def parse_server_versions(self, line):
         '''Parse server-versions keyword.
@@ -327,43 +323,37 @@ class ConsensusParser:
         server-versions are recommended relay versions in ascending order.
         should match version-spec.txt in tor spec docs.
         '''
-        if self.preamble_values[line[0]] is not None:
+        if self.values['preamble_values'][line[0]] is not None:
             raise BadConsensusDoc('Keyword {0} must occur at most once '
                                   'in consensus doc.'.format(line[0]))
-        self.preamble_values[line[0]] = line[1:]
+        self.values['preamble_values'][line[0]] = line[1:]
 
     def parse_known_flags(self, line):
         '''Parse known-flags keyword line.
         '''
-        if self.preamble_values[line[0]] is not None:
+        if self.values['preamble_values'][line[0]] is not None:
             raise BadConsensusDoc('Keyword {0} must occur exactly once '
                                   'in consensus doc.'.format(line[0]))
 
-        self.preamble_values[line[0]] = line[1:]
+        self.values['preamble_values'][line[0]] = line[1:]
 
     def parse_params(self, line):
         '''Parse params keyword line.
         '''
-        if self.preamble_values[line[0]] is not None:
+        if self.values['preamble_values'][line[0]] is not None:
             raise BadConsensusDoc('Keyword {0} must occur at most once '
                                   'in consensus doc.'.format(line[0]))
-        self.preamble_values[line[0]] = {}
+        self.values['preamble_values'][line[0]] = {}
         for i in line[1:]:
             i = i.split('=')
-            self.preamble_values[line[0]][i[0]] = i[1]
+            self.values['preamble_values'][line[0]][i[0]] = i[1]
 
 if __name__ == '__main__':
     with open('data/cns.txt', 'r') as f:
         text = f.read()
     c = ConsensusParser(text)
     c.parse()
-    for i in c.preamble_values:
-        print(i, c.preamble_values[i])
-    for i in c.authority_values:
-        print(i, c.authority_values[i])
-    for i in c.router_status:
-        print(i, c.router_status[i])
-    for i in c.bandwidth_weights:
-        print(i, c.bandwidth_weights[i])
-    for i in c.directory_signatures:
-        print(i, c.directory_signatures[i])
+    for i in c.values:
+        print('***\n' + i + '\n***')
+        for j in c.values[i]:
+            print(j, c.values[i][j])
