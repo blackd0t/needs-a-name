@@ -10,3 +10,9 @@ class BadRouterDoc(Exception):
 
 class BadKeyDoc(Exception):
     pass
+
+class BadFormatRSAKey(Exception):
+    pass
+
+class BadFormatSignature(Exception):
+    pass

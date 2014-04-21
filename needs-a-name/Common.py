@@ -2,6 +2,8 @@
 Common functions used across program.
 '''
 
+from Exceptions import BadFormatRSAKey, BadFormatSignature
+
 def get_rsa_pub_key(data):
     '''Return the raw public key.
 
@@ -31,7 +33,7 @@ def get_signature(data):
     '''
     line = data.readline().strip()
     if line != '-----BEGIN SIGNATURE-----':
-        raise BadFormatRSAKey("Missing '-----BEGIN SIGNATURE-----' "
+        raise BadFormatSignature("Missing '-----BEGIN SIGNATURE-----' "
                               "line in key.")
 
     line = data.readline().strip()
@@ -50,7 +52,7 @@ def get_id_signature(data):
     '''
     line = data.readline().strip()
     if line != '-----BEGIN ID SIGNATURE-----':
-        raise BadFormatRSAKey("Missing '-----BEGIN ID SIGNATURE-----' "
+        raise BadFormatSignature("Missing '-----BEGIN ID SIGNATURE-----' "
                               "line in key.")
 
     line = data.readline().strip()
