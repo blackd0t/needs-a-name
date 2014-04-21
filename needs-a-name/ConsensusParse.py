@@ -19,7 +19,7 @@ class ConsensusParser:
         self.data = StringIO(data)
 
         self.values = {
-            'preamble_values': {
+            'preamble': {
                 'network-status-version': None,
                 'vote-status': None,
                 'consensus-method': None,
@@ -229,9 +229,9 @@ class ConsensusParser:
         Verify keyword is first item in line, length is len(line, and,
         if single is True, that this is the first occurence of keyword.
         '''
-        if self.values['preamble_values'][keyword] and single:
+        if self.values['preamble'][keyword] and single:
             raise BadConsensusDoc("Too many {0} keywords - expected "
-                                  "EXACTLY one.".format(keyword))
+                                  "EXACTLY one or AT MOST one.".format(keyword))
         if len(line) != length:
             raise BadConsensusDoc('Not enough arguments for {0}.'\
                                   .format(keyword))
@@ -246,19 +246,21 @@ class ConsensusParser:
         line = self.data.readline().strip().split()
         self.verify_line(line, 'network-status-version', 2)
 
-        self.values['preamble_values'][line[0]] = line[1]
+        if line[1] != '3':
+            raise BadConsensusDoc("network-status-version must be '3'.")
+
+        self.values['preamble'][line[0]] = line[1]
 
     def parse_vote_status(self, line):
         '''Verify vote-status is consensus.
         '''
-
         self.verify_line(line, 'vote-status', 2)
 
         if line[1] != 'consensus':
-            raise BadConsensusDoc("Expected type 'consensus' "
+            raise BadConsensusDoc("Expected vote-status type 'consensus' "
                                   " - got {0}".format(line[1]))
 
-        self.values['preamble_values'][line[0]] = line[1]
+        self.values['preamble'][line[0]] = line[1]
 
     def parse_consensus_method(self, line):  
         '''Parse consensus method.
@@ -267,8 +269,9 @@ class ConsensusParser:
         '''
         self.verify_line(line, 'consensus-method', 2)
         # don't care about the values so just ignore
-        self.values['preamble_values'][line[0]] = line[1]
+        self.values['preamble'][line[0]] = line[1]
 
+    # XXX need to verify we have a valid date/time
     def parse_valid_after(self, line):
         '''Parse valid-after keyword line.
 
@@ -276,7 +279,7 @@ class ConsensusParser:
         '''
         self.verify_line(line, 'valid-after', 3)
 
-        self.values['preamble_values'][line[0]] = line[1:]
+        self.values['preamble'][line[0]] = line[1:]
 
     def parse_fresh_until(self, line):
         '''Parse fresh-until keyword line.
@@ -285,7 +288,7 @@ class ConsensusParser:
         '''
         self.verify_line(line, 'fresh-until', 3)
 
-        self.values['preamble_values'][line[0]] = line[1:]
+        self.values['preamble'][line[0]] = line[1:]
 
     def parse_valid_until(self, line):
         '''Parse valid-until keyword line.
@@ -294,7 +297,7 @@ class ConsensusParser:
         '''
         self.verify_line(line, 'valid-until', 3)
 
-        self.values['preamble_values'][line[0]] = line[1:]
+        self.values['preamble'][line[0]] = line[1:]
 
     def parse_voting_delay(self, line):
         '''Parse voting-delay keyword.
@@ -303,7 +306,7 @@ class ConsensusParser:
         '''
         self.verify_line(line, 'voting-delay', 3)
 
-        self.values['preamble_values'][line[0]] = line[1:]
+        self.values['preamble'][line[0]] = line[1:]
 
     def parse_client_versions(self, line):
         '''Parse client-versions keyword.
@@ -311,11 +314,10 @@ class ConsensusParser:
         client-versions are recommended Tor versions in ascending order.
         Should match version-spec.txt from tor specification docs.
         '''
-
-        if self.values['preamble_values'][line[0]] is not None:
+        if self.values['preamble'][line[0]] is not None:
             raise BadConsensusDoc('Keyword {0} must occur at most once '
                                   'in consensus doc.'.format(line[0]))
-        self.values['preamble_values'][line[0]] = line[1:]
+        self.values['preamble'][line[0]] = line[1:]
 
     def parse_server_versions(self, line):
         '''Parse server-versions keyword.
@@ -323,30 +325,37 @@ class ConsensusParser:
         server-versions are recommended relay versions in ascending order.
         should match version-spec.txt in tor spec docs.
         '''
-        if self.values['preamble_values'][line[0]] is not None:
+        if self.values['preamble'][line[0]] is not None:
             raise BadConsensusDoc('Keyword {0} must occur at most once '
                                   'in consensus doc.'.format(line[0]))
-        self.values['preamble_values'][line[0]] = line[1:]
+        self.values['preamble'][line[0]] = line[1:]
 
     def parse_known_flags(self, line):
         '''Parse known-flags keyword line.
         '''
-        if self.values['preamble_values'][line[0]] is not None:
+        if self.values['preamble'][line[0]] is not None:
             raise BadConsensusDoc('Keyword {0} must occur exactly once '
                                   'in consensus doc.'.format(line[0]))
 
-        self.values['preamble_values'][line[0]] = line[1:]
+        self.values['preamble'][line[0]] = line[1:]
 
     def parse_params(self, line):
         '''Parse params keyword line.
         '''
-        if self.values['preamble_values'][line[0]] is not None:
+        if self.values['preamble'][line[0]] is not None:
             raise BadConsensusDoc('Keyword {0} must occur at most once '
                                   'in consensus doc.'.format(line[0]))
-        self.values['preamble_values'][line[0]] = {}
+        self.values['preamble'][line[0]] = {}
         for i in line[1:]:
             i = i.split('=')
-            self.values['preamble_values'][line[0]][i[0]] = i[1]
+            self.values['preamble'][line[0]][i[0]] = i[1]
+
+    def multi_word_exc(self, keyword):
+        '''Raise exception if we have more than one keyword that must appear
+        either exactly once or at most once.
+        '''
+        raise BadConsensusDoc("Only one '{0}' line allowed per network "
+                              "consensus document.".format(keyword))
 
 if __name__ == '__main__':
     with open('data/cns.txt', 'r') as f:
