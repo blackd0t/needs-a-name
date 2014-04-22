@@ -102,6 +102,8 @@ class ConsensusDownload:
         '''
         for i in oc['router_status']:
             if 'V2Dir' in oc['router_status'][i]['flags']:
+                # get from dir cache here
+                pass
                 
 
     def consensus_from_dirauth(self):
