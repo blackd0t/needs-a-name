@@ -20,67 +20,81 @@ In Config.py:
     orport, v3ident digest, ip address, fingerprint, and (for Tonga) bridge
 '''
 
-directory_auth_info = {
-    'moria1': {
+directory_auth_info = [
+    {
+        'nickaname': 'moria1',
         'orport': 9101,
         'v3ident': 0x0,
         'ip': '128.31.0.39:9131',
         'fingerprint': 0x0,
     },
-    'tor26': {
+    {
+        'nickname': 'tor26',
         'orport': 443,
         'v3ident': 0x0,
         'ip': '86.59.21.38:80',
         'fingerprint': 0x0,
     },
-    'dizum': {
+    {
+        'nickname': 'dizum',
         'orport': 443,
         'v3ident': 0x0,
         'ip': '194.109.206.212:80',
         'fingerprint': 0x0,
     },
     # Tonga is a bridge directory authority
-    'Tonga': {
+    {
+        'nickname': 'Tonga',
         'orport': 443,
         'v3ident': 0x0,
         'ip': '82.94.251.203:80',
         'fingerprint': 0x0,
         'bridge': True,
     },
-    'turtles': {
+    {
+        'nickname': 'turtles',
         'orport': 9090,
         'v3ident': 0x0,
         'ip': '76.73.17.194:9030',
         'fingerprint': 0x0,
     },
-    'gabelmoo': {
+    {
+        'nickname': 'gabelmoo',
         'orport': 443,
         'v3ident': 0x0,
         'ip': '212.112.245.170:80',
         'fingerprint': 0x0,
     },
-    'dannenberg': {
+    {
+        'nickname': 'dannenberg',
         'orport': 443,
         'v3ident': 0x0,
         'ip': '193.23.244.244:80',
         'fingerprint': 0x0,
     },
-    'urras': {
+    {
+        'nickname': 'urras',
         'orport': 80,
         'v3ident': 0x0,
         'ip': '208.83.223.34:443',
         'fingerprint': 0x0,
     },
-    'maatuska': {
+    {
+        'nickname': 'maatuska',
         'orport': 80,
         'v3ident': 0x0,
         'ip': '171.25.193.9:443',
         'fingerprint': 0x0,
     },
-    'Faravahar': {
+    {
+        'nickname': 'Faravahar',
         'orport': 443,
         'v3ident': 0x0,
         'ip': '154.35.32.5:80',
         'fingerprint': 0x0,
     },
-}
+]
+
+consensus_cache_file = 'data/cached-consensus'
+
+consensus_url = '/tor/status-vote/current/consensus.z'

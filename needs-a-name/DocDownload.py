@@ -1,7 +1,14 @@
+# TODO:
+#   - finish up getting doc from directory auth caches (need url+port)
+#   - check document signatures before parsing
+
 '''
 Download network status documents.
 
 We follow some simple rules: 
+
+Note that the scheduling logic should be elsewhere; we're only concerned with
+how to do things here, not when or why.
 
     * Network Consensus Documents *
 
@@ -49,3 +56,76 @@ We follow some simple rules:
     - 
 
 '''
+from os import path
+from random import choice
+from urllib import request
+from zlib import decompress
+
+from Config import consensus_cache_file, consensus_url, directory_auth_info
+from DocParsers import ConsensusParser
+from Exceptions import BadConsensusDoc
+
+# for nc doc, first check local cache
+# if not there, then get from dir auth
+
+class ConsensusDownload:
+    
+    def __init__(self):
+        self.consensus = None
+
+    def get_consensus(self):
+        '''Get a fresh network consensus.
+
+        If we have a local copy, try getting consensus from directory
+        caches.  Otherwise, go straight to directory authorities.
+        '''
+        
+        try:
+            self.consensus_from_cache()
+        except (BadConsensusDoc, FileNotFoundError):
+            self.consensus_from_dirauth()
+
+    def consensus_from_cache(self):
+        '''Get fresh network consensus from directory cache.
+        '''
+        with open(consensus_cache_file, 'r') as f:
+            text = f.read()
+        c = ConsensusParser(text)
+        c.parse()
+        # XXX use this to check routers with V2Dir flag for consensus
+        old_consensus = c.values
+        self.consensus_from_dircache(old_consensus)
+
+    def consensus_from_dircache(self, oc):  
+        '''Try downloading a fresh consensus doc from routers
+        in oc (old_consensus) that have V2Dir flag.
+        '''
+        for i in oc['router_status']:
+            if 'V2Dir' in oc['router_status'][i]['flags']:
+                
+
+    def consensus_from_dirauth(self):
+        '''Get fresh network consensus from directory authority.
+
+        Choose an authority at random for this.
+        '''
+        dir_auth = choice(directory_auth_info)
+        url = 'http://' + dir_auth['ip'] + consensus_url
+        with request.urlopen(url) as f:
+            text = decompress(f.read()).decode('ascii')
+        c = ConsensusParser(text)
+        c.parse()
+        self.consensus = c.values
+        self.write_new_cache(text)
+
+    def write_new_cache(self, data):
+        '''Write a fresh copy of the consensus to our filesystem cache.
+        '''
+        with open(consensus_cache_file, 'w') as f:
+            f.write(data)
+        
+if __name__ == '__main__':
+    d = ConsensusDownload()
+    d.get_consensus()
+    #for j in d.consensus:
+    #    print(j, d.consensus[j])
