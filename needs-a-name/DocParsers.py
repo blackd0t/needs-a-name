@@ -843,32 +843,27 @@ class KeyCertParser:
         self.values[key]['dir-key-certification'] = get_signature(self.data)
 
 if __name__ == '__main__':
-    #with open('data/keys.txt', 'r') as f:
-    #    text = f.read()
-    #k = KeyCertParser(text)
-    #k.parse()
-    #for i in k.values:
-    #    print('***\n' + i + '\n***')
-    #    for j in k.values[i]:
-    #        print(j, k.values[i][j])
-    #
-    #with open('data/cns.txt', 'r') as f:
-    #    text = f.read()
-    #c = ConsensusParser(text)
-    #c.parse()
-    #for i in c.values:
-    #    print('***\n' + i + '\n***')
-    #    for j in c.values[i]:
-    #        print(j, c.values[i][j])
-    #
-    #with open('data/rd.txt', 'r') as f:
-    #    d = f.read()
-    #r = RouterParser(d)
-    #r.parse()
-    #for i in r.values:
-    #    print(i, r.values[i])
-    with open('data/cns.txt', 'r') as f:
+    with open('data/keys.txt', 'r') as f:
+        text = f.read()
+    k = KeyCertParser(text)
+    k.parse()
+    for i in k.values:
+        print('***\n' + i + '\n***')
+        for j in k.values[i]:
+            print(j, k.values[i][j])
+    
+    with open('data/cached-consensus', 'r') as f:
         text = f.read()
     c = ConsensusParser(text)
     c.parse()
-    c.write_doc('test')
+    for i in c.values:
+        print('***\n' + i + '\n***')
+        for j in c.values[i]:
+            print(j, c.values[i][j])
+    
+    with open('data/rd.txt', 'r') as f:
+        d = f.read()
+    r = RouterParser(d)
+    r.parse()
+    for i in r.values:
+        print(i, r.values[i])
