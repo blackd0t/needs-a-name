@@ -96,7 +96,8 @@ class ConsensusDownloader:
         self.write_new_cache(text)
 
     def consensus_from_file(self):
-        '''Get fresh network consensus from directory cache.
+        '''Read old consensus file to figure out what directory
+        caches we know about.
         '''
         with open(consensus_cache_file, 'r') as f:
             text = f.read()
