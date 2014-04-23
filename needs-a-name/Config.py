@@ -96,5 +96,7 @@ directory_auth_info = [
 ]
 
 consensus_cache_file = 'data/cached-consensus'
+key_cache_file       = 'data/cached-keys'
 
 consensus_url = '/tor/status-vote/current/consensus.z'
+key_url       = '/tor/keys/all.z'

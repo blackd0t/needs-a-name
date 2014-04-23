@@ -2,6 +2,9 @@
 Common functions used across program.
 '''
 
+from urllib import request
+from zlib import decompress
+
 from Exceptions import BadFormatRSAKey, BadFormatSignature
 
 def get_rsa_pub_key(data):
@@ -61,3 +64,16 @@ def get_id_signature(data):
         _id += line
         line = data.readline().strip()
     return _id
+
+def download_network_doc(ip, port, url):
+    '''Download doc found at url from ip using port.
+
+    Return the decompressed and decoded representation in ascii.
+    '''
+    path = 'http://' + ip
+    if port:
+        path += ':' + port
+    path += url
+    with request.urlopen(path) as f:
+        text = decompress(f.read()).decode('ascii')
+    return text
