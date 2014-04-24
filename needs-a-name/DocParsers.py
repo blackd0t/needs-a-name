@@ -50,7 +50,6 @@ class ConsensusParser:
             'directory_signatures': {},
         }
 
-
         # parsing functions
         self.parsers = {
             'network-status-version': self.check_consensus_start,
@@ -94,7 +93,6 @@ class ConsensusParser:
         '''
         # we have an algorithm specified
         if len(line) == 4:
-            self.values['directory_signatures'][line[2]] = {}
             self.values['directory_signatures'][line[2]]['algorithm'] = line[1]
             self.values['directory_signatures'][line[2]]['signing-key-digest'] = line[3]
         # no algorithm specified; use sha1
@@ -241,12 +239,17 @@ class ConsensusParser:
         Verify keyword is first item in line, length is len(line, and,
         if single is True, that this is the first occurence of keyword.
         '''
-        if self.values['preamble'][keyword] and single:
-            raise BadConsensusDoc("Too many {0} keywords - expected "
-                                  "EXACTLY one or AT MOST one.".format(keyword))
         if len(line) != length:
             raise BadConsensusDoc('Not enough arguments for {0}.'\
                                   .format(keyword))
+
+        if line[0] != keyword:
+            raise BadConsensusDoc("Expected {0} in network consensus "
+                                  "- got '{1}'".format(keyword, line[0]))
+
+        if self.values['preamble'][keyword] and single:
+            raise BadConsensusDoc("Too many {0} keywords - expected "
+                                  "EXACTLY one or AT MOST one.".format(keyword))
 
     def check_consensus_start(self):
         '''Check consensus starts with good keyword.
@@ -281,6 +284,9 @@ class ConsensusParser:
         '''
         self.verify_line(line, 'consensus-method', 2)
         # don't care about the values so just ignore
+        if line[1] != '17':
+            raise BadConsensusDoc("We currently only support "
+                                  "consensus-method 17.")
         self.values['preamble'][line[0]] = line[1]
 
     # XXX need to verify we have a valid date/time
@@ -843,27 +849,33 @@ class KeyCertParser:
         self.values[key]['dir-key-certification'] = get_signature(self.data)
 
 if __name__ == '__main__':
-    with open('data/keys.txt', 'r') as f:
-        text = f.read()
-    k = KeyCertParser(text)
-    k.parse()
-    for i in k.values:
-        print('***\n' + i + '\n***')
-        for j in k.values[i]:
-            print(j, k.values[i][j])
+    def test_all():
+        with open('data/keys.txt', 'r') as f:
+            text = f.read()
+        k = KeyCertParser(text)
+        k.parse()
+        for i in k.values:
+            print('***\n' + i + '\n***')
+            for j in k.values[i]:
+                print(j, k.values[i][j])
     
-    with open('data/cached-consensus', 'r') as f:
+        with open('data/cached-consensus', 'r') as f:
+            text = f.read()
+        c = ConsensusParser(text)
+        c.parse()
+        for i in c.values:
+            print('***\n' + i + '\n***')
+            for j in c.values[i]:
+                print(j, c.values[i][j])
+    
+        with open('data/rd.txt', 'r') as f:
+            d = f.read()
+        r = RouterParser(d)
+        r.parse()
+        for i in r.values:
+            print(i, r.values[i])
+
+    with open('bad-consensus', 'r') as f:
         text = f.read()
     c = ConsensusParser(text)
     c.parse()
-    for i in c.values:
-        print('***\n' + i + '\n***')
-        for j in c.values[i]:
-            print(j, c.values[i][j])
-    
-    with open('data/rd.txt', 'r') as f:
-        d = f.read()
-    r = RouterParser(d)
-    r.parse()
-    for i in r.values:
-        print(i, r.values[i])

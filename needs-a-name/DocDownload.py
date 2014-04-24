@@ -66,6 +66,7 @@ from Config import consensus_cache_file, consensus_url, directory_auth_info
 from DocParsers import ConsensusParser
 from Exceptions import BadConsensusDoc
 
+# TODO check spec for rules on what to do if things fail
 class ConsensusDownloader:
     
     def __init__(self):

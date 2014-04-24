@@ -12,3 +12,7 @@ with Python3.
 
 All further references to Tor (or tor), unless otherwise specified, refer to
 the protocol and not to the organization.
+
+#### Testing
+To run tests, use `python3 -m unittest discover` from inside the 
+"needs-a-name" module directory
