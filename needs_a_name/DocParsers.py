@@ -10,7 +10,6 @@ Current parsers:
 '''
 
 # TODO:
-#       - consider converting dates/times into timestamps
 #       - make sure values are reasonable (i.e. date/times are correct, etc.)
 #       - make sure *REQUIRED* keywords are present
 #       - refactor some stuff to be simpler
