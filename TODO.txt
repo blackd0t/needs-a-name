@@ -1,4 +1,8 @@
 DocParsers.py
+    - are we using sensible data structures for holding network 
+      status info?  almost certainly not.  will need to go back
+      and refine things as we discover how we will be using stuff.
+
     - check that we get all required arguments out of documents
 
     - check that our values are reasonable and correct (i.e. IP 
