@@ -61,10 +61,11 @@ how to do things here, not when or why.
 from os import path
 from random import choice
 
-from Common import download_network_doc
-from Config import consensus_cache_file, consensus_url, directory_auth_info
+import Common as Com
+import Config as Conf
+import Exceptions as Exc
+
 from DocParsers import ConsensusParser
-from Exceptions import BadConsensusDoc
 
 # TODO check spec for rules on what to do if things fail
 class ConsensusDownloader:
@@ -81,7 +82,7 @@ class ConsensusDownloader:
         
         try:
             self.consensus_from_file()
-        except (BadConsensusDoc, FileNotFoundError):
+        except (Exc.BadConsensusDoc, FileNotFoundError):
             self.consensus_from_dirauth()
 
     def got_new_consensus(self, text):
@@ -100,7 +101,7 @@ class ConsensusDownloader:
         '''Read old consensus file to figure out what directory
         caches we know about.
         '''
-        with open(consensus_cache_file, 'r') as f:
+        with open(Conf.consensus_cache_file, 'r') as f:
             text = f.read()
         c = ConsensusParser(text)
         # XXX check signatures here first
@@ -116,10 +117,10 @@ class ConsensusDownloader:
         #     this should also be randomized
         for i in oc['router_status']:
             if 'V2Dir' in oc['router_status'][i]['flags']:
-                text = download_network_doc(
+                text = Com.download_network_doc(
                             oc['router_status'][i]['ip'],
                             oc['router_status'][i]['dirport'],
-                            consensus_url
+                            Conf.consensus_url
                         )
                 break
 
@@ -130,14 +131,14 @@ class ConsensusDownloader:
 
         Choose an authority at random for this.
         '''
-        dir_auth = choice(directory_auth_info)
-        text = download_network_doc(dir_auth['ip'], '', consensus_url)
+        dir_auth = choice(Conf.directory_auth_info)
+        text = Com.download_network_doc(dir_auth['ip'], '', Conf.consensus_url)
         self.got_new_consensus(text)
 
     def write_new_cache(self, data):
         '''Write a fresh copy of the consensus to our filesystem cache.
         '''
-        with open(consensus_cache_file, 'w') as f:
+        with open(Conf.consensus_cache_file, 'w') as f:
             f.write(data)
         
 if __name__ == '__main__':
