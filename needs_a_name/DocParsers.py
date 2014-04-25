@@ -348,7 +348,13 @@ class ConsensusParser:
         '''
         self.verify_line(line, 'voting-delay', 3)
 
-        self.values['preamble'][line[0]] = line[1:]
+        self.values['preamble'][line[0]] = []
+        try:
+            self.values['preamble'][line[0]].append(int(line[1]))
+            self.values['preamble'][line[0]].append(int(line[2]))
+        except ValueError:
+            raise Exc.BadConsensusDoc('Bad format for arguments '
+                                      'to voting-delay.')
 
     def parse_client_versions(self, line):
         '''Parse client-versions keyword.
@@ -359,6 +365,9 @@ class ConsensusParser:
         if self.values['preamble'][line[0]] is not None:
             raise Exc.BadConsensusDoc('Keyword {0} must occur at most once '
                                   'in consensus doc.'.format(line[0]))
+        if len(line) != 2:
+            raise Exc.BadConsensusDoc('Invalid arguments to client-versions.')
+
         self.values['preamble'][line[0]] = line[1:]
 
     def parse_server_versions(self, line):
@@ -381,6 +390,9 @@ class ConsensusParser:
 
         self.values['preamble'][line[0]] = line[1:]
 
+    # XXX should valid params be hardcoded somewhere?
+    #     in the spec it just says 'commonly used param arguments
+    #     at this point include...'
     def parse_params(self, line):
         '''Parse params keyword line.
         '''
@@ -390,7 +402,11 @@ class ConsensusParser:
         self.values['preamble'][line[0]] = {}
         for i in line[1:]:
             i = i.split('=')
-            self.values['preamble'][line[0]][i[0]] = i[1]
+            try:
+                self.values['preamble'][line[0]][i[0]] = int(i[1])
+            except ValueError:
+                raise Exc.BadConsensusDoc('Bad argument to param - expected '
+                                          'integer.')
 
     def multi_word_exc(self, keyword):
         '''Raise exception if we have more than one keyword that must appear

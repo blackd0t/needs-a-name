@@ -81,7 +81,7 @@ def download_network_doc(ip, port, url):
     return text
 
 def date_to_timestamp(date):
-    '''Convert a date to a timestamp.
+    '''Convert a date to a timestamp and return integer.
 
     format of date should be "YYYY-MM-DD HH:MM:SS".
     '''
