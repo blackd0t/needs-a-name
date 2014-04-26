@@ -337,14 +337,6 @@ class ConsensusParser:
 
         # indexed by authority identity key
         key = line[2]
-        '''
-        self.values['authority_values'][key] = {}
-        self.values['authority_values'][key]['nickname'] = line[1]
-        self.values['authority_values'][key]['address'] = line[3]
-        self.values['authority_values'][key]['ip'] = line[4]
-        self.values['authority_values'][key]['dirport'] = line[5]
-        self.values['authority_values'][key]['orport'] = line[6]
-        '''
         tmp_dict['nickname'] = line[1]
         tmp_dict['address'] = line[3]
         
@@ -385,8 +377,9 @@ class ConsensusParser:
             raise Exc.BadConsensusDoc('Invalid arguments to vote-digest '
                                       'line in dir-source.')
         if line[0] != 'vote-digest':
-            raise Exc.BadConsensusDoc('Bad keyword {0} in consensus doc - '
-                                'expected \'vote-digest\'.'.format(line[0]))
+            raise Exc.BadConsensusDoc("Bad keyword {0} in consensus doc - "
+                                      "expected 'vote-digest'."\
+                                      .format(line[0]))
 
         #self.values['authority_values'][key]['vote-digest'] = line[1]
         tmp_dict['vote-digest'] = line[1]
