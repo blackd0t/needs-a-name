@@ -40,10 +40,114 @@ params = {
     'usecreatefast': 0,
 }
 
-# XXX finished with preamble tests, with notable exception of checking for
-#     all required values. note that failing because of not having all required
-#     values is both: a) something we have to do and b) something that will 
-#     break some of these tests...oh well
+bad_tor26_nickname = '''
+network-status-version 3
+dir-source tor27 14C131DFC5C6F93646BE72FA1401C02A8DF2E8B4 86.59.21.38 86.59.21.38 80 443
+contact Peter Palfrader
+vote-digest A0D395CA16E77BF496D816D2BFE88B007E7DA046
+'''
+
+bad_tor26_port = '''
+network-status-version 3
+dir-source tor26 14C131DFC5C6F93646BE72FA1401C02A8DF2E8B4 86.59.21.38 86.59.21.38 80 444
+contact Peter Palfrader
+vote-digest A0D395CA16E77BF496D816D2BFE88B007E7DA046
+'''
+
+bad_tor26_ip = '''
+network-status-version 3
+dir-source tor26 14C131DFC5C6F93646BE72FA1401C02A8DF2E8B4 86.59.21.34 86.59.21.38 80 443
+contact Peter Palfrader
+vote-digest A0D395CA16E77BF496D816D2BFE88B007E7DA046
+'''
+
+bad_tor26_v3 = '''
+network-status-version 3
+dir-source tor26 14C131DFC5C6F93646BE72FA1401C02A8DF2E8B 86.59.21.38 86.59.21.38 80 443
+contact Peter Palfrader
+vote-digest A0D395CA16E77BF496D816D2BFE88B007E7DA046
+'''
+
+bad_r_date = '''
+network-status-version 3
+known-flags Authority BadExit Exit Fast Guard HSDir Named Running Stable Unnamed V2Dir Valid
+r TorNinurtaName AA8YrCza5McQugiY3J4h5y4BF9g 5iqAr4PxmFuGsJtcMAB3hUe0T1E 2014-04-246 00:29:18 151.236.6.198 9001 9030
+s Fast HSDir Running Stable V2Dir Valid
+v Tor 0.2.3.25
+w Bandwidth=193
+p reject 1-65535
+'''
+
+bad_r_ip = '''
+network-status-version 3
+known-flags Authority BadExit Exit Fast Guard HSDir Named Running Stable Unnamed V2Dir Valid
+r TorNinurtaName AA8YrCza5McQugiY3J4h5y4BF9g 5iqAr4PxmFuGsJtcMAB3hUe0T1E 2014-04-24 00:29:18 151.236.6.1987 9001 9030
+s Fast HSDir Running Stable V2Dir Valid
+v Tor 0.2.3.25
+w Bandwidth=193
+p reject 1-65535
+'''
+
+bad_r_port = '''
+network-status-version 3
+known-flags Authority BadExit Exit Fast Guard HSDir Named Running Stable Unnamed V2Dir Valid
+r TorNinurtaName AA8YrCza5McQugiY3J4h5y4BF9g 5iqAr4PxmFuGsJtcMAB3hUe0T1E 2014-04-24 00:29:18 151.236.6.198 9001 90304
+s Fast HSDir Running Stable V2Dir Valid
+v Tor 0.2.3.25
+w Bandwidth=193
+p reject 1-65535
+'''
+
+bad_s_flag = '''
+network-status-version 3
+known-flags Authority BadExit Exit Fast Guard HSDir Named Running Stable Unnamed V2Dir Valid
+r TorNinurtaName AA8YrCza5McQugiY3J4h5y4BF9g 5iqAr4PxmFuGsJtcMAB3hUe0T1E 2014-04-24 00:29:18 151.236.6.198 9001 9030
+s Fast HSDir Running Stable V2Dir Valid InvalidRouterFlag
+v Tor 0.2.3.25
+w Bandwidth=193
+p reject 1-65535
+'''
+
+bad_w_band = '''
+network-status-version 3
+known-flags Authority BadExit Exit Fast Guard HSDir Named Running Stable Unnamed V2Dir Valid
+r TorNinurtaName AA8YrCza5McQugiY3J4h5y4BF9g 5iqAr4PxmFuGsJtcMAB3hUe0T1E 2014-04-24 00:29:18 151.236.6.198 9001 9030
+s Fast HSDir Running Stable V2Dir Valid
+v Tor 0.2.3.25
+w Bandwidth=BadBandwidth
+p reject 1-65535
+'''
+
+bad_p_reject = '''
+network-status-version 3
+known-flags Authority BadExit Exit Fast Guard HSDir Named Running Stable Unnamed V2Dir Valid
+r TorNinurtaName AA8YrCza5McQugiY3J4h5y4BF9g 5iqAr4PxmFuGsJtcMAB3hUe0T1E 2014-04-24 00:29:18 151.236.6.198 9001 9030
+s Fast HSDir Running Stable V2Dir Valid
+v Tor 0.2.3.25
+w Bandwidth=BadBandwidth
+p reject 1-65536
+'''
+
+bad_a_ipv6 = '''
+network-status-version 3
+known-flags Authority BadExit Exit Fast Guard HSDir Named Running Stable Unnamed V2Dir Valid
+r tor1rufus /baOacH+/u/tl/0o3slYR4P5zc0 4vpiFgwPkfXz/zmyCMLmDz8W1Wg 2014-04-24 09:08:13 209.240.71.9 9001 9002
+a [2001:4980:1:2121::9j]:9001
+s Fast Guard HSDir Running Stable Unnamed V2Dir Valid
+v Tor 0.2.5.2-alpha
+w Bandwidth=519
+p reject 1-65535
+'''
+
+bad_p_accept = '''
+network-status-version 3
+known-flags Authority BadExit Exit Fast Guard HSDir Named Running Stable Unnamed V2Dir Valid
+r Unnamed /kCKj6j4jeQpjIKchLpdqr95Pw0 bQmrSzX9PeUOt4NeWofFYaW8oj4 2014-04-23 21:19:44 173.208.196.215 9001 0
+s Exit Fast Running Stable Valid
+v Tor 0.2.4.21
+w Bandwidth=614
+p accept 20-23,43,53,79-81,88,110,143,194,220,389,443,464,531,543-544,554,563,636,706,749,873,902-904,981,989-995,1194,1220,1293,1500,1533,1677,1723,1755,1863,2082-2083,2086-2087,2095-2096,2102-2104,3128,3389,3690,4321,4643,5050,5190,5222-5223,5228,5900,6660-6669,6679,6697,8000,8008,8074,8080,8087-8088,8332-8333,8443,8888,9418,9999-10000,11371,12350,19294,19638,23456,33033,64738,65555
+'''
 
 class ConsensusParserTest(unittest.TestCase):
 
@@ -183,9 +287,70 @@ class ConsensusParserTest(unittest.TestCase):
         for i in params:
             self.assertTrue(params[i] == self.values['preamble']['params'][i])
 
+    # start of authority section tests
+    def test_dir_source_single_entry(self):
+        '''test dir-source line parsing in authority section for a single entry
+        '''
+        text = 'network-status-version 3\n'
+        line1 = 'dir-source tor26 14C131DFC5C6F93646BE72FA1401C02A8DF2E8B4 '
+        line1 += '86.59.21.38 86.59.21.38 80 443\n'
+        line2 = 'contact Peter Palfrader\n'
+        line3 = 'vote-digest A0D395CA16E77BF496D816D2BFE88B007E7DA046\n'
+
+        # missing argument
+        bad = line1[:-4] + '\n' + line2 + line3
+        self.assert_raises_helper(bad, Exc.BadConsensusDoc)
+
+        # invalid hostname
+        bad = ' '.join(line1.split()[:2]) + ' 8677.59.21.38 ' 
+        bad += ' '.join(line1.split()[4:]) + '\n' + line2 + line3
+        self.assert_raises_helper(bad, Exc.BadConsensusDoc)
+
+        # invalid ip
+        bad = ' '.join(line1.split()[:4]) + ' 8677.59.21.38 ' 
+        bad += ' '.join(line1.split()[5:]) + '\n' + line2 + line3
+        self.assert_raises_helper(bad, Exc.BadConsensusDoc)
+
+        # invalid port - processing same for dirport and orport
+        bad = ' '.join(line1.split()[:6]) + ' 65536\n'
+        bad += line2 + line3
+        self.assert_raises_helper(bad, Exc.BadConsensusDoc)
+
+        # missing contact info
+        bad = line1 + 'contact\n' + line3
+        self.assert_raises_helper(bad, Exc.BadConsensusDoc)
+
+        # XXX do we need to validate length/chars of digest too?
+        # missing digest
+        bad = line1 + line2 + 'vote-digest\n'
+        self.assert_raises_helper(bad, Exc.BadConsensusDoc)
+
+    def test_dir_source_all(self):
+        '''verify we throw exception if dir auth identity key, address, etc.
+        does not match what is hardcoded.
+        '''
+        self.assert_raises_helper(bad_tor26_v3, Exc.BadConsensusDoc)
+        self.assert_raises_helper(bad_tor26_ip, Exc.BadConsensusDoc)
+        self.assert_raises_helper(bad_tor26_nickname, Exc.BadConsensusDoc)
+        self.assert_raises_helper(bad_tor26_port, Exc.BadConsensusDoc)
+
+    def test_router_status(self):
+        '''test router status entries fail when they should.
+        '''
+        self.assert_raises_helper(bad_r_date, Exc.BadConsensusDoc)
+        self.assert_raises_helper(bad_r_ip, Exc.BadConsensusDoc)
+        self.assert_raises_helper(bad_r_port, Exc.BadConsensusDoc)
+        self.assert_raises_helper(bad_s_flag, Exc.BadConsensusDoc)
+        self.assert_raises_helper(bad_w_band, Exc.BadConsensusDoc)
+        self.assert_raises_helper(bad_p_reject, Exc.BadConsensusDoc)
+        self.assert_raises_helper(bad_p_accept, Exc.BadConsensusDoc)
+        self.assert_raises_helper(bad_a_ipv6, Exc.BadConsensusDoc)
+
+
+
     def assert_raises_helper(self, text, exc):
         '''assertRaises(exc) on string text
         '''
-        with self.assertRaises(Exc.BadConsensusDoc):
-            c = ConsensusParser(text)
+        with self.assertRaises(exc):
+            c = ConsensusParser(text, False)
             c.parse()

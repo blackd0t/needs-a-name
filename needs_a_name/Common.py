@@ -2,6 +2,9 @@
 Common functions used across program.
 '''
 
+import re
+import socket
+
 from datetime import datetime
 from calendar import timegm
 from urllib import request
@@ -88,5 +91,46 @@ def date_to_timestamp(date):
     d = datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
     return timegm(d.utctimetuple())
 
+def valid_hostname(hostname):
+    '''return True iff hostname is a legal hostname
+    '''
+    if len(hostname) > 255:
+        return False
+    if hostname[-1] == '.':
+        hostname = hostname[:-1]
+    good = re.compile("(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
+    return all(good.match(x) for x in hostname.split('.'))
+
+def valid_ip(ip):
+    '''return True iff ip is a valid ip address
+    '''
+    # support IPv6
+    if ':' in ip:
+        try:
+            socket.inet_pton(socket.AF_INET6, ip)
+        except socket.error:
+            return False
+    else:
+        try: 
+            socket.inet_aton(ip)
+        except socket.error:
+            return False
+
+    return True
+
+def valid_port(port):
+    '''return True iff port is a valid port
+    '''
+    try:
+        port = int(port)
+    except ValueError:
+        return False
+
+    if port not in range(1, 65536):
+        return False
+
+    return True
+            
+
 if __name__ == '__main__':
-    print(date_to_timestamp('2014-03-02 13:00:00'))
+    print(valid_port('l'))

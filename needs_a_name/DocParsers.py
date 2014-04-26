@@ -18,16 +18,23 @@ Current parsers:
 from io import StringIO
 
 import Common as Com
+import Config as Conf
 import Exceptions as Exc
 
 class ConsensusParser:
     '''Parse a network consensus.
     '''
     
-    def __init__(self, data):
+    def __init__(self, data, required_values=True):
         '''Initialize data and function mapping dict.
+
+        data is raw consensus doc to parse
+        required_values dictates whether or not we verify we got all
+        the values we need from doc -- mainly for testing purposes and
+        will always be True in practical usage
         '''
         self.data = StringIO(data)
+        self.required_values = required_values
 
         self.values = {
             'preamble': {
@@ -87,6 +94,14 @@ class ConsensusParser:
                 raise Exc.BadConsensusDoc('Bad keyword {0} in network '
                                           'consensus.'.format(line[0]))
 
+    def valid_identity_key(self, key):
+        '''True iff key matches some directory authority's hardcoded identity
+        '''
+        for j in Conf.directory_auth_info:
+            if key == j['v3ident']:
+                return True
+        return False
+
     def parse_dir_signature(self, line):
         '''Parse directory signature line.
         '''
@@ -95,7 +110,18 @@ class ConsensusParser:
             # stop pylint complaining about line lengths 
             k = line[2]
             d = line[3]
+
+            if line[1] != 'sha256':
+                raise Exc.BadConsensusDoc("Unsupported algorithm '{0}' for "
+                                          "directory-signature."\
+                                          .format(line[1]))
+
             self.values['directory_signatures'][line[2]]['algorithm'] = line[1]
+
+            if not self.valid_identity_key(k):
+                raise Exc.BadConsensusDoc("Unrecognized signing key digest - "
+                                          "need to update your Config?")
+
             self.values['directory_signatures'][k]['signing-key-digest'] = d
         # no algorithm specified; use sha1
         elif len(line) == 3:
@@ -103,10 +129,15 @@ class ConsensusParser:
             d = line[2]
             self.values['directory_signatures'][line[1]] = {}
             self.values['directory_signatures'][line[1]]['algorithm'] = 'sha1'
+
+            if not self.valid_identity_key(k):
+                raise Exc.BadConsensusDoc("Unrecognized signing key digest - "
+                                          "need to update your Config?")
+
             self.values['directory_signatures'][k]['signing-key-digest'] = d
         else:
             raise Exc.BadConsensusDoc('Invalid arguments to '
-                                  'directory-signature line.')
+                                      'directory-signature line.')
 
         sig = self.get_signature(self.data.readline())
         self.values['directory_signatures'][line[1]]['signature'] = sig
@@ -131,6 +162,9 @@ class ConsensusParser:
         self.values['bandwidth_weights'] = {}
         keys = [i.split('=') for i in line[1:]]
         for i in keys:
+            if i[0] not in Conf.bandwidth_weights:
+                raise Exc.BadConsensusDoc("Unrecognized bandwidth-weights "
+                                          "tag '{0}'".format(i))
             self.values['bandwidth_weights'][i[0]] = i[1]
 
     def add_new_router(self, line):
@@ -148,11 +182,97 @@ class ConsensusParser:
         except ValueError:
             raise Exc.BadConsensusDoc('Badly formed publication time for router.')
 
-        self.values['router_status'][key]['ip'] = line[6]
-        self.values['router_status'][key]['orport'] = line[7]
-        self.values['router_status'][key]['dirport'] = line[8]
+        if Com.valid_ip(line[6]):
+            self.values['router_status'][key]['ip'] = line[6]
+        else:
+            raise Exc.BadConsensusDoc('Invalid IP for router.')
+
+        if Com.valid_port(line[7]):
+            self.values['router_status'][key]['orport'] = line[7]
+        else:
+            raise Exc.BadConsensusDoc('Invalid orport for router.')
+
+        # 0 is ok for port here and just means that they don't have a dirport
+        if Com.valid_port(line[8]) or line[8] == '0':
+            self.values['router_status'][key]['dirport'] = line[8]
+        else:
+            print(line[8])
+            raise Exc.BadConsensusDoc('Invalid dirport for router.')
 
         return key
+
+    def router_parse_a(self, l, key):
+        '''parse 'a' line in consensus
+        '''
+        if 'ipv6' not in self.values['router_status'][key]:
+            self.values['router_status'][key]['ipv6'] = []
+        l = l.split()
+        l.pop(0)
+        for i in range(len(l)):
+            g = l[i].strip().rsplit(']', 1)[0][1:]
+            g = g[1:]
+            if Com.valid_ip(g):
+                self.values['router_status'][key]['ipv6'].append(l[i])
+            else:   
+                raise Exc.BadConsensusDoc('Invalid IPv6 address '
+                                          'for router.')
+    def router_parse_s(self, l, key):
+        '''parse 's' line in consensus
+        '''
+        if 'flags' in self.values['router_status'][key]:
+            raise Exc.BadConsensusDoc('Only one flags argument per '
+                                      'router allowed in consensus.')
+
+        if self.values['preamble']['known-flags'] is None:
+            raise Exc.BadConsensusDoc('Missing known-flags.')
+
+        l = l.split()
+        l.pop(0)
+        self.values['router_status'][key]['flags'] = []
+        for i in range(len(l)):
+            if l[i] in self.values['preamble']['known-flags']:
+                self.values['router_status'][key]['flags'].append(l[i])
+            else:
+                raise Exc.BadConsensusDoc("Unrecognized flag: '{0}'"\
+                                          .format(l[i]))
+
+    def router_parse_v(self, l, key):
+        '''parse 'v' line in consensus
+        '''
+        if 'version' in self.values['router_status'][key]:
+            raise Exc.BadConsensusDoc('Only one version argument per '
+                                      'router allowed in consensus.')
+        g = l.split()
+        if len(g) < 2:
+            raise BadConsensusDoc('Missing version string.')
+        if len(g[1]) > 128:
+            raise BadConsensusDoc('Version string should be <= 128 chars.')
+        self.values['router_status'][key]['version'] = l[1:]
+
+    def router_parse_w(self, l, key):
+        '''parse 'w' line in consensus
+        '''
+        if 'bandwidth' in self.values['router_status'][key]:
+            raise Exc.BadConsensusDoc('Only one bandwidth argument per '
+                                      'router allowed in consensus.')
+        # we're currently not using bandwidth from consensus
+        l = l.split()
+        l = [i.strip() for i in l]
+        self.values['router_status'][key]['bandwidth'] = l[1:]
+
+    def router_parse_p(self, l, key):
+        '''parse 'p' line in consensus
+        '''
+        if 'ports' in self.values['router_status'][key]:
+            raise Exc.BadConsensusDoc('Only one ports argument per '
+                                      'router allowed in consensus.')
+        # ignore this; we'll use info from descriptors
+        pass
+    def router_parse_m(self, l, key):
+        '''parse 'm' line in consensus
+        '''
+        # ignore this for now; not present in recent consensus
+        pass
 
     def router_parser(self, line):
         '''Parse a router status entry in consensus doc.
@@ -168,38 +288,17 @@ class ConsensusParser:
         l = self.data.readline()
         while not l.startswith('directory-footer'):
             if l.startswith('a'):
-                if 'ipv6' not in self.values['router_status'][key]:
-                    self.values['router_status'][key]['ipv6'] = []
-                l = l.split()
-                l = [i.strip() for i in l]
-                self.values['router_status'][key]['ipv6'].append(l[1:])
+                self.router_parse_a(l, key)
             elif l.startswith('s'):
-                if 'flags' in self.values['router_status'][key]:
-                    raise Exc.BadConsensusDoc('Only one flags argument per '
-                                          'router allowed in consensus.')
-                l = l.split()
-                l = [i.strip() for i in l]
-                self.values['router_status'][key]['flags'] = l[1:]
+                self.router_parse_s(l, key)
             elif l.startswith('v'):
-                if 'version' in self.values['router_status'][key]:
-                    raise Exc.BadConsensusDoc('Only one version argument per '
-                                          'router allowed in consensus.')
-                l = l.split()
-                l = [i.strip() for i in l]
-                self.values['router_status'][key]['version'] = l[1:]
+                self.router_parse_v(l, key)
             elif l.startswith('w'):
-                if 'bandwidth' in self.values['router_status'][key]:
-                    raise Exc.BadConsensusDoc('Only one bandwidth argument per '
-                                          'router allowed in consensus.')
+                self.router_parse_w(l, key)
             elif l.startswith('p'):
-                if 'ports' in self.values['router_status'][key]:
-                    raise Exc.BadConsensusDoc('Only one ports argument per '
-                                          'router allowed in consensus.')
-                # ignore this; we'll use info from descriptors
-                pass
+                self.router_parse_p(l, key)
             elif l.startswith('m'):
-                # ignore this for now; not present in recent consensus
-                pass
+                self.router_parse_m(l, key)
             elif l.startswith('r'):
                 l = l.split()
                 key = self.add_new_router(l)
@@ -213,35 +312,117 @@ class ConsensusParser:
         '''Parse dir-source keyword line, contact line, and vote-digest line.
         '''
         if len(line) != 7:
-            raise Exc.BadConsensusDoc('Invalid number of arguments to dir-source.')
+            raise Exc.BadConsensusDoc('Invalid number of arguments to '
+                                      'dir-source.')
+
+        if not Com.valid_hostname(line[3]):
+            raise Exc.BadConsensusDoc('Invalid hostname for directory '
+                                      'authority in network consensus.')
+
+        if not Com.valid_ip(line[4]):
+            raise Exc.BadConsensusDoc('Invalid ip for directory authority '
+                                      'in network consensus.')
+
+        if not Com.valid_port(line[5]):
+            raise Exc.BadConsensusDoc('Invalid dirport for directory '
+                                      'authority in network consensus.')
+
+        if not Com.valid_port(line[6]):
+            raise Exc.BadConsensusDoc('Invalid orport for directory '
+                                      'authority in network consensus.')
+
+        # store values in tmp_dict first, and if everything matches what we
+        # have hardcoded then add tmp_dict to self.values
+        tmp_dict = {}
 
         # indexed by authority identity key
         key = line[2]
+        '''
         self.values['authority_values'][key] = {}
         self.values['authority_values'][key]['nickname'] = line[1]
         self.values['authority_values'][key]['address'] = line[3]
         self.values['authority_values'][key]['ip'] = line[4]
         self.values['authority_values'][key]['dirport'] = line[5]
         self.values['authority_values'][key]['orport'] = line[6]
+        '''
+        tmp_dict['nickname'] = line[1]
+        tmp_dict['address'] = line[3]
+        
+        if Com.valid_ip(line[4]):
+            tmp_dict['ip'] = line[4]
+        else:
+            raise Exc.BadConsensusDoc('Invalid address value in '
+                                      'dir-source line.')
+
+        if Com.valid_port(line[5]):
+            tmp_dict['dirport'] = int(line[5])
+        else:
+            raise Exc.BadConsensusDoc('Invalid dirport value in '
+                                      'dir-source line.')
+
+        if Com.valid_port(line[6]):
+            tmp_dict['orport'] = int(line[6])
+        else:
+            raise Exc.BadConsensusDoc('Invalid orport value in '
+                                      'dir-source line.')
 
         # get contact info
         line = self.data.readline().split()
+        if len(line) == 0:
+            raise Exc.BadConsensusDoc('Invalid dir-source format.')
+
         if line[0] != 'contact':
             raise Exc.BadConsensusDoc('Bad keyword {0} in consensus doc - '
                                   'expected \'contact\'.'.format(line[0]))
 
-        self.values['authority_values'][key]['contact'] = line[1:]
+        #self.values['authority_values'][key]['contact'] = line[1:]
+        tmp_dict['contact'] = line[1:]
 
         # get vote digest
         line = self.data.readline().split()
+
         if len(line) != 2:
             raise Exc.BadConsensusDoc('Invalid arguments to vote-digest '
-                                  'line in dir-source.')
+                                      'line in dir-source.')
         if line[0] != 'vote-digest':
             raise Exc.BadConsensusDoc('Bad keyword {0} in consensus doc - '
-                                  'expected \'vote-digest\'.'.format(line[0]))
+                                'expected \'vote-digest\'.'.format(line[0]))
 
-        self.values['authority_values'][key]['vote-digest'] = line[1]
+        #self.values['authority_values'][key]['vote-digest'] = line[1]
+        tmp_dict['vote-digest'] = line[1]
+        self.check_hardcoded_dirauth_values(tmp_dict, key)
+        # add to self.values if everything's kosher re: hardcoded values
+        self.values['authority_values'][key] = tmp_dict
+
+    def check_hardcoded_dirauth_values(self, d, key):
+        '''make sure nickname, identity, address, ip, dirport, and orport
+        for d match what is hardcoded in Config.
+        '''
+        found = False
+        for i in Conf.directory_auth_info:
+            if i['nickname'] != 'Tonga':
+                if key == i['v3ident']: 
+                    if d['nickname'] != i['nickname']:
+                        raise Exc.BadConsensusDoc(err_str)
+                    if d['ip'] != i['ip'].split(':')[0]:
+                        raise Exc.BadConsensusDoc(err_str)
+                    if d['orport'] != i['orport']:
+                        raise Exc.BadConsensusDoc(err_str)
+                    found = True
+                    break
+            # Tonga apparently doesn't have an identity key?
+            else:
+                if d['nickname'] == 'Tonga': 
+                    if d['ip'] != i['ip'].split(':')[0]:
+                        raise Exc.BadConsensusDoc(err_str)
+                    if d['orport'] != i['orport']:
+                        raise Exc.BadConsensusDoc(err_str)
+                    found = True
+                    break
+
+        if found is False:
+            raise Exc.BadConsensusDoc("Found a directory authority I don't "
+                                      "recognize.")
 
     def verify_line(self, line, keyword, length, single=True):
         '''Helper to parse consensus.
@@ -299,7 +480,6 @@ class ConsensusParser:
                                   "consensus-method 17.")
         self.values['preamble'][line[0]] = line[1]
 
-    # XXX need to verify we have a valid date/time
     def parse_valid_after(self, line):
         '''Parse valid-after keyword line.
 
@@ -323,7 +503,7 @@ class ConsensusParser:
             timestamp = Com.date_to_timestamp(' '.join(line[1:]))
         except ValueError:
             raise Exc.BadConsensusDoc('Improperly formatted date for '
-                                  'fresh-until.')
+                                      'fresh-until.')
 
         self.values['preamble'][line[0]] = timestamp
 
@@ -935,4 +1115,12 @@ if __name__ == '__main__':
         for i in r.values:
             print(i, r.values[i])
 
-    test_all()
+    #test_all()
+    with open('data/cached-consensus', 'r') as f:
+        text = f.read()
+    c = ConsensusParser(text)
+    c.parse()
+    #for i in c.values:
+    #    print('***\n' + i + '\n***')
+    #    for j in c.values[i]:
+    #        print(j, c.values[i][j])
