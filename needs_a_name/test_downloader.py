@@ -14,7 +14,6 @@ from twisted.internet.protocol import Protocol
 from twisted.internet import reactor
 
 from stem.descriptor.networkstatus import NetworkStatusDocumentV3
-from stem.descriptor.remote import DescriptorDownloader
 
 import Common as Com
 import Config as Conf

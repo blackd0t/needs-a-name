@@ -1,6 +1,6 @@
 needs-a-name
 ============
-This is a Python3 implementation of a Tor client.
+This is a Python implementation of a Tor client.
 
 ## Warning
 **Do Not**, under any circumstances, use this tool if you want anonymity
