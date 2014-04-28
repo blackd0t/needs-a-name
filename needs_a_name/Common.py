@@ -1,3 +1,5 @@
+#! /usr/bin/python
+
 '''
 Common functions used across program.
 '''
@@ -7,7 +9,7 @@ import socket
 
 from datetime import datetime
 from calendar import timegm
-from urllib import request
+from urllib2 import urlopen
 from zlib import decompress
 
 from Exceptions import BadFormatRSAKey, BadFormatSignature
@@ -77,11 +79,10 @@ def download_network_doc(ip, port, url):
     '''
     path = 'http://' + ip
     if port:
-        path += ':' + port
+        path += ':' + str(port)
     path += url
-    with request.urlopen(path) as f:
-        text = decompress(f.read()).decode('ascii')
-    return text
+    req = urlopen(path)
+    return decompress(req.read())
 
 def date_to_timestamp(date):
     '''Convert a date to a timestamp and return integer.
@@ -130,7 +131,13 @@ def valid_port(port):
         return False
 
     return True
+
+def get_current_time():
+    '''Return epoch time.
+    '''
+    d = datetime.utcnow()
+    return timegm(d.utctimetuple())
             
 
 if __name__ == '__main__':
-    print(valid_port('l'))
+    print get_current_time()

@@ -1,6 +1,6 @@
 needs-a-name
 ============
-This is a Python3 implementation of a Tor client. 
+This is a Python3 implementation of a Tor client.
 
 ## Warning
 **Do Not**, under any circumstances, use this tool if you want anonymity
@@ -12,6 +12,7 @@ better and learn more about onion routing and anonymity systems.
 All further references to Tor (or tor), unless otherwise specified, refer to
 the protocol and not to the organization.
 
-#### Testing
-To run tests, use `python3 -m unittest discover` from inside the 
-`needs_a_name` module directory.
+#### Design
+We're using stem for consensus and descriptor parsing and data structures.
+Still experimenting with what asynchronous networking framework will be
+best to use.
